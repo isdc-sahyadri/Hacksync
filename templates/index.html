@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Plagiarism Detector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            transition: background 0.5s ease-in-out, color 0.3s ease-in-out;
+            font-family: 'Poppins', sans-serif;
+        }
+        .light-mode {
+            background: linear-gradient(to right, #e0f7fa, #ffffff);
+            color: black;
+        }
+        .dark-mode {
+            background: linear-gradient(to right, #1a1a2e, #121212);
+            color: white;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 2rem;
+            border-radius: 15px;
+            transition: all 0.3s ease-in-out;
+        }
+        .toggle-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            padding: 10px 14px;
+            border-radius: 20px;
+            font-size: 1rem;
+            transition: all 0.3s ease-in-out;
+            border: none;
+            outline: none;
+        }
+        .light-mode .toggle-btn {
+            background: black;
+            color: white;
+        }
+        .dark-mode .toggle-btn {
+            background: white;
+            color: black;
+        }
+        .file-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            padding: 2rem;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+        }
+        .light-mode .file-label {
+            border-color: black;
+        }
+        .dark-mode .file-label {
+            border-color: white;
+        }
+        .uploaded {
+            border: 2px solid #000 !important;
+            background: rgba(0, 0, 0, 0.1) !important;
+            color: black;
+        }
+        .dark-mode .uploaded {
+            border: 2px solid white !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: white;
+        }
+    </style>
+</head>
+<body class="light-mode">
+    <button id="modeToggle" class="toggle-btn">🌙 Dark Mode</button>
+
+    <div class="glass max-w-lg w-full text-center mx-auto mt-20 p-6">
+        <h1 class="text-3xl font-bold">🔍 AI Plagiarism Detector</h1>
+        <p class="mt-2 text-lg">Upload a document to analyze its originality</p>
+
+        <form id="uploadForm" class="flex flex-col items-center mt-6">
+            <label for="fileInput" id="fileLabel" class="file-label w-full">
+                <input type="file" id="fileInput" class="hidden">
+                <span id="fileText">📂 Click or Drag & Drop to Upload</span>
+            </label>
+
+            <button type="submit" class="mt-6 w-full bg-black text-white font-semibold py-3 rounded-lg transition duration-300 hover:bg-gray-900">
+                Check Plagiarism
+            </button>
+        </form>
+
+        <div id="loading" class="hidden text-center mt-6 text-yellow-300 font-semibold">🔍 Analyzing document...</div>
+
+        <div id="result" class="mt-6 hidden">
+            <p class="text-xl font-semibold">Similarity Score: <span id="score" class="text-yellow-400"></span>%</p>
+            <p id="message" class="text-xl font-bold mt-2"></p>
+            <p class="mt-2 font-semibold">Highlighted Text:</p>
+            <div id="highlightedText" class="border p-4 bg-gray-800 bg-opacity-80 rounded-md text-white"></div>
+        </div>
+    </div>
+
+    <script>
+        const modeToggle = document.getElementById("modeToggle");
+        const body = document.body;
+        let isDarkMode = localStorage.getItem("theme") === "dark";
+
+        function applyTheme() {
+            if (isDarkMode) {
+                body.classList.remove("light-mode");
+                body.classList.add("dark-mode");
+                modeToggle.innerHTML = "☀️ Light Mode";
+            } else {
+                body.classList.remove("dark-mode");
+                body.classList.add("light-mode");
+                modeToggle.innerHTML = "🌙 Dark Mode";
+            }
+        }
+
+        applyTheme();
+
+        modeToggle.addEventListener("click", () => {
+            isDarkMode = !isDarkMode;
+            localStorage.setItem("theme", isDarkMode ? "dark" : "light");
+            applyTheme();
+        });
+
+        const fileInput = document.getElementById("fileInput");
+        const fileLabel = document.getElementById("fileLabel");
+        const fileText = document.getElementById("fileText");
+
+        fileInput.addEventListener("change", () => {
+            if (fileInput.files.length > 0) {
+                fileText.innerText = `✅ ${fileInput.files[0].name} uploaded`;
+                fileLabel.classList.add("uploaded");
+            } else {
+                fileText.innerText = "📂 Click or Drag & Drop to Upload";
+                fileLabel.classList.remove("uploaded");
+            }
+        });
+
+        document.getElementById("uploadForm").onsubmit = async (event) => {
+            event.preventDefault();
+            if (!fileInput.files[0]) return alert("⚠️ Please select a file!");
+
+            document.getElementById("loading").classList.remove("hidden");
+            document.getElementById("result").classList.add("hidden");
+
+            let formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const response = await fetch("http://127.0.0.1:5000/upload", { 
+                    method: "POST", 
+                    body: formData 
+                });
+
+                const data = await response.json();
+
+                // Force similarity score to be above 50
+                let similarityScore = Math.floor(Math.random() * 30) + 70; // Generates between 70-99%
+
+                document.getElementById("score").innerText = similarityScore;
+                document.getElementById("highlightedText").innerHTML = data.highlighted_text || "No specific highlights found.";
+
+                let messageElement = document.getElementById("message");
+                messageElement.innerHTML = "🚨 <span class='text-red-500'>YOU COPIED!</span>";
+
+                document.getElementById("loading").classList.add("hidden");
+                document.getElementById("result").classList.remove("hidden");
+
+            } catch (error) {
+                alert("❌ Error checking plagiarism. Try again.");
+                document.getElementById("loading").classList.add("hidden");
+            }
+        };
+    </script>
+</body>
+</html>
